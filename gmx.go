@@ -2,16 +2,15 @@ package gmx
 
 import (
 	"encoding/json"
-	"fmt"
 	"io"
 	"log"
 	"net"
 	"os"
-	"path/filepath"
 	"sync"
 )
 
 const GMX_VERSION = 0
+
 
 var (
 	r = &registry{
@@ -20,9 +19,10 @@ var (
 )
 
 func init() {
-	s, err := localSocket()
+	s, err := setupSocket()
+
 	if err != nil {
-		log.Printf("gmx: unable to open local socket: %v", err)
+		log.Printf("gmx: unable to open socket: %v", err)
 		return
 	}
 
@@ -33,16 +33,7 @@ func init() {
 	go serve(s, r)
 }
 
-func localSocket() (net.Listener, error) {
-	return net.ListenUnix("unix", localSocketAddr())
-}
 
-func localSocketAddr() *net.UnixAddr {
-	return &net.UnixAddr{
-		filepath.Join(os.TempDir(), fmt.Sprintf(".gmx.%d.%d", os.Getpid(), GMX_VERSION)),
-		"unix",
-	}
-}
 
 // Publish registers the function f with the supplied key.
 func Publish(key string, f func() interface{}) {
