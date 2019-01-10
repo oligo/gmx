@@ -7,7 +7,7 @@ import (
 )
 
 func init() {
-	Publish("os.args", osArgs)
+	Publish("os.args", (MetricFunc)(osArgs))
 }
 
 func osArgs() interface{} {

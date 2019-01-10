@@ -20,29 +20,37 @@ type GMXConn struct {
 func (conn *GMXConn) FetchKeys() []string {
 	// retrieve list of registered keys
 	if err := conn.Encode([]string{"keys"}); err != nil {
-		log.Fatalf("unable to send keys request to process: %v", err)
+		log.Printf("unable to send keys request to process: %v\n", err)
+		return nil
 	}
+
 	var result = make(map[string][]string)
 	if err := conn.Decode(&result); err != nil {
-		log.Fatalf("unable to decode keys response: %v", err)
+		log.Printf("unable to decode keys response: %v\n", err)
+		return nil
 	}
+
 	keys, ok := result["keys"]
 	if !ok {
-		log.Fatalf("gmx server did not return a keys list")
+		log.Printf("gmx server did not return a keys list\n")
 	}
+	
 	return keys
 }
 
 
 // GetValues returns values of keys from the process.
-func (conn *GMXConn) GetValues(keys []string) interface{} {
+func (conn *GMXConn) GetValues(keys []string) map[string]interface{} {
 	// retrieve list of registered keys
 	if err := conn.Encode(keys); err != nil {
 		log.Fatalf("unable to send request to address: %v", err)
+		return nil
 	}
-	var result interface{}
+
+	var result map[string]interface{}
 	if err := conn.Decode(&result); err != nil {
 		log.Fatalf("unable to decode response: %v", err)
+		return nil
 	}
 	
 	return result
@@ -78,21 +86,21 @@ func NewGMXConnPool() *GMXConnPool {
 	}
 }
 
-func (p *GMXConnPool) Push(addr string) error {
+func (p *GMXConnPool) Push(addr string) (*GMXConn, error) {
 	p.Lock()
 	defer p.Unlock()
 
-	if _, exist := p.conns[addr]; exist {
-		return nil
+	if conn, exist := p.conns[addr]; exist {
+		return conn, nil
 	}
 
 	conn, err := dial(addr)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	p.conns[addr] = conn
 	
-	return nil
+	return conn, nil
 }
 
 

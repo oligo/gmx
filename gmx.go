@@ -14,7 +14,7 @@ const GMX_VERSION = 0
 
 var (
 	r = &registry{
-		entries: make(map[string]func() interface{}),
+		entries: make(map[string]Metric),
 	}
 )
 
@@ -27,17 +27,17 @@ func init() {
 	}
 
 	// register the registries keys for discovery
-	Publish("keys", func() interface{} {
+	Publish("keys", (MetricFunc)(func() interface{} {
 		return r.keys()
-	})
+	}))
 	go serve(s, r)
 }
 
 
 
-// Publish registers the function f with the supplied key.
-func Publish(key string, f func() interface{}) {
-	r.register(key, f)
+// Publish registers the metric with the supplied key.
+func Publish(key string, metric Metric) {
+	r.register(key, metric)
 }
 
 func serve(l net.Listener, r *registry) {
@@ -80,9 +80,22 @@ func handle(nc net.Conn, reg *registry) {
 		}
 		var result = make(map[string]interface{})
 		for _, key := range keys {
-			if f, ok := reg.value(key); ok {
+			if m, ok := reg.value(key); ok {
+				//var metricType string
+				//switch m.(type) {
+				//case MetricFunc:
+				//	metricType = MetricRaw
+				//case Counter:
+				//	metricType = MetricCounter
+				//case Gauge:
+				//	metricType = MetricGauge
+				//}
+				//result[key] = response{Type: metricType, Value: m.Value()}
+
 				// invoke the function for key and store the result
-				result[key] = f()
+
+				result[key] = m.Value()
+
 			}
 		}
 		if err := c.Encode(result); err != nil {
@@ -92,22 +105,36 @@ func handle(nc net.Conn, reg *registry) {
 	}
 }
 
+/*
+const (
+	MetricRaw = "string"
+	MetricCounter = "counter"
+	MetricGauge = "gauge"
+)
+
+type response struct {
+	Type string	`json:"type"`
+	Value interface{}	`json:"value"`
+}
+
+*/
+
 type registry struct {
 	sync.Mutex // protects entries from concurrent mutation
-	entries    map[string]func() interface{}
+	entries    map[string]Metric
 }
 
-func (r *registry) register(key string, f func() interface{}) {
+func (r *registry) register(key string, metric Metric) {
 	r.Lock()
 	defer r.Unlock()
-	r.entries[key] = f
+	r.entries[key] = metric
 }
 
-func (r *registry) value(key string) (func() interface{}, bool) {
+func (r *registry) value(key string) (Metric, bool) {
 	r.Lock()
 	defer r.Unlock()
-	f, ok := r.entries[key]
-	return f, ok
+	m, ok := r.entries[key]
+	return m, ok
 }
 
 func (r *registry) keys() (k []string) {

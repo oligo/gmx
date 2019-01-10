@@ -28,7 +28,7 @@ type conn struct {
 }
 
 func dial(addr string) (*conn, error) {
-	c, err := net.Dial("unix", addr)
+	c, err := net.Dial("tcp", addr)
 	return &conn{
 		c,
 		json.NewDecoder(c),
@@ -88,10 +88,12 @@ func main() {
 		listGmxProcesses()
 		return
 	}
-	c, err := dial(filepath.Join(os.TempDir(), fmt.Sprintf(".gmx.%d.0", *pid)))
+	// c, err := dial(filepath.Join(os.TempDir(), fmt.Sprintf(".gmx.%d.0", *pid)))
+	c, err := dial("127.0.0.1:9997")
 	if err != nil {
 		log.Fatalf("unable to connect to process %d: %v", *pid, err)
 	}
+	log.Println("connected!")
 	defer c.Close()
 
 	// match flag.Args() as regexps
