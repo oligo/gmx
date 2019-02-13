@@ -6,6 +6,9 @@ import (
 	"strings"
 	"sync"
 	"log"
+	"os"
+	"path/filepath"
+	"fmt"
 )
 
 // GMXConn is connection between gmx client and gmx process.
@@ -54,6 +57,18 @@ func (conn *GMXConn) GetValues(keys []string) map[string]interface{} {
 	}
 	
 	return result
+}
+
+//var socketregex = regexp.MustCompile(`\.gmx\.[0-9]+\.0`)
+
+func findUnixSocket(pid int) string {
+	pidFile := filepath.Join(os.TempDir(), fmt.Sprintf(".gmx.%d.%d", pid, GMX_VERSION))
+	if _, err := os.Stat(pidFile); os.IsNotExist(err) {
+		log.Printf("Unix socket %s does not exist", pidFile)
+		return ""
+	}
+
+	return pidFile
 }
 
 func dial(addr string) (*GMXConn, error) {

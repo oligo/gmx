@@ -20,13 +20,6 @@ type DataStore struct {
 	*bolt.DB
 }
 
-var db *DataStore
-
-
-func init() {
-	db = NewDataStore("./metrics.db")
-}
-
 func NewDataStore(file string) *DataStore {
 	db, err := bolt.Open(file, 0600, &bolt.Options{
 		Timeout: 3 * time.Second,
@@ -130,11 +123,16 @@ type MetricsSyncer struct {
 	conn *GMXConn
 	interval time.Duration	// scheduling interval
 	db *DataStore
+	stopChan chan bool
 }
 
 
 func NewMetricsSyncer(conn *GMXConn, interval time.Duration, db *DataStore) MetricsSyncer {
-	return MetricsSyncer{conn, interval, db}
+	return MetricsSyncer{
+		conn: conn, 
+		interval:interval, 
+		db: db,
+	}
 }
 
 func (s MetricsSyncer) retrieveKeys() error {
@@ -153,9 +151,13 @@ func (s MetricsSyncer) queryAll() error {
 	return s.db.saveMetrics(values)
 }
 
-func (s MetricsSyncer) Run() chan bool {
+func (s MetricsSyncer) Run() {
 	ticker := time.NewTicker(s.interval)
-	stop := make(chan bool)
+	s.stopChan = make(chan bool)
+
+	if err := s.retrieveKeys(); err != nil {
+		log.Fatalln("Retrieving keys from GMX server failed!")
+	}
 
 	go func() {
 		for {
@@ -165,14 +167,16 @@ func (s MetricsSyncer) Run() chan bool {
 				if err != nil {
 					log.Println(err)
 				}
-			case <- stop:
+			case <- s.stopChan:
 				ticker.Stop()
 				return
 			}
 		}
 	}()
+}
 
-	return stop
+func (s MetricsSyncer) Stop() {
+	s.stopChan <- true
 }
 
 // itob returns an 8-byte big endian representation of v.

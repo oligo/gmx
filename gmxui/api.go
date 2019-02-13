@@ -5,13 +5,11 @@ import (
 	"net/http"
 	"encoding/json"
 	"github.com/gorilla/sessions"
-	"time"
 )
 
 var sessionStore = sessions.NewCookieStore([]byte("session-key-123456"))
 const sessionName = "gmxui-session"
 
-var stopper chan bool
 
 func connect(w http.ResponseWriter, r *http.Request) {
 	err := r.ParseForm()
@@ -36,23 +34,8 @@ func connect(w http.ResponseWriter, r *http.Request) {
 		return 
 	}
 
-	if connPool.HasAddr(addr){
-		http.Error(w, "Host already connected", http.StatusOK)
-		return 
-	}
-
-	if _, err := connPool.Push(addr); err != nil {
-		log.Println(err)
-		http.Error(w, "Connecting host failed", http.StatusInternalServerError)
-		return
-	}
-
 	session.Values["current-addr"] =  addr
 	session.Save(r, w)
-
-	syncer := NewMetricsSyncer(connPool.Get(addr), 5 * time.Second, db)
-	syncer.retrieveKeys()
-	stopper = syncer.Run()
 }
 
 func allKeys(w http.ResponseWriter, r *http.Request) {
